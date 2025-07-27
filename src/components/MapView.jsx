@@ -8,7 +8,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-const { FiArrowLeft, FiMapPin, FiNavigation, FiInfo, FiEdit2, FiSave, FiX } = FiIcons;
+const { FiArrowLeft, FiMapPin, FiNavigation, FiInfo, FiEdit2, FiSave, FiX, FiCalendar } = FiIcons;
 
 // Fix for default markers in react-leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -35,7 +35,7 @@ const createCustomIcon = (color) => {
 };
 
 // Custom component to fit map bounds to all markers
-const MapBoundsManager = ({ coordinates }) => {
+const MapBoundsManager = ({ coordinates, selectedDate }) => {
   const map = useMap();
   
   useEffect(() => {
@@ -50,7 +50,7 @@ const MapBoundsManager = ({ coordinates }) => {
         animate: true
       });
     }
-  }, [coordinates, map]);
+  }, [coordinates, map, selectedDate]);
   
   return null;
 };
@@ -64,6 +64,9 @@ const MapView = () => {
   const [mapCenter, setMapCenter] = useState([40.7128, -74.0060]); // Default to NYC
   const [mapZoom, setMapZoom] = useState(2); // Start zoomed out to see global view
   const [markerCoordinates, setMarkerCoordinates] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [uniqueDates, setUniqueDates] = useState([]);
+  const [filteredEntries, setFilteredEntries] = useState([]);
   const mapRef = useRef(null);
 
   const entryTypeColors = {
@@ -87,13 +90,39 @@ const MapView = () => {
     attraction: 'bg-purple-500',
   };
 
-  // Process all entries to get their coordinates
+  // Extract unique dates from entries
   useEffect(() => {
     if (entries.length > 0) {
-      const coordinates = entries.map(entry => getLocationCoordinates(entry));
-      setMarkerCoordinates(coordinates);
+      // Get all unique dates
+      const dates = [...new Set(entries.map(entry => entry.date))].sort((a, b) => new Date(b) - new Date(a));
+      setUniqueDates(dates);
+      
+      // Set the most recent date as default
+      if (dates.length > 0 && !selectedDate) {
+        setSelectedDate(dates[0]);
+      }
     }
   }, [entries]);
+  
+  // Filter entries by selected date
+  useEffect(() => {
+    if (entries.length > 0 && selectedDate) {
+      const filtered = entries.filter(entry => entry.date === selectedDate);
+      setFilteredEntries(filtered);
+    } else {
+      setFilteredEntries(entries);
+    }
+  }, [entries, selectedDate]);
+
+  // Process all entries to get their coordinates
+  useEffect(() => {
+    if (filteredEntries.length > 0) {
+      const coordinates = filteredEntries.map(entry => getLocationCoordinates(entry));
+      setMarkerCoordinates(coordinates);
+    } else {
+      setMarkerCoordinates([]);
+    }
+  }, [filteredEntries]);
 
   // Get user's current location for map centering if no entries
   useEffect(() => {
@@ -159,7 +188,7 @@ const MapView = () => {
   };
 
   // Group entries by location for the sidebar
-  const locationGroups = entries.reduce((groups, entry) => {
+  const locationGroups = filteredEntries.reduce((groups, entry) => {
     if (!groups[entry.location]) {
       groups[entry.location] = [];
     }
@@ -192,6 +221,40 @@ const MapView = () => {
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-6">
+        {/* Date Filter */}
+        {uniqueDates.length > 0 && (
+          <motion.div 
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="mb-6"
+          >
+            <div className="flex items-center space-x-3 bg-white p-4 rounded-xl shadow-sm border">
+              <SafeIcon icon={FiCalendar} className="text-primary-500" />
+              <label htmlFor="date-filter" className="text-sm font-medium text-gray-700">
+                Filter by date:
+              </label>
+              <select
+                id="date-filter"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+              >
+                <option value="">All dates</option>
+                {uniqueDates.map(date => (
+                  <option key={date} value={date}>
+                    {new Date(date).toLocaleDateString('en-US', { 
+                      weekday: 'short', 
+                      year: 'numeric', 
+                      month: 'short', 
+                      day: 'numeric' 
+                    })}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </motion.div>
+        )}
+
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Map Area */}
           <div className="lg:col-span-2">
@@ -212,7 +275,7 @@ const MapView = () => {
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
-                  {entries.map((entry) => {
+                  {filteredEntries.map((entry) => {
                     const coordinates = getLocationCoordinates(entry);
                     const icon = createCustomIcon(entryTypeColors[entry.type]);
                     
@@ -239,7 +302,7 @@ const MapView = () => {
                   
                   {/* Add the bounds manager component */}
                   {markerCoordinates.length > 0 && (
-                    <MapBoundsManager coordinates={markerCoordinates} />
+                    <MapBoundsManager coordinates={markerCoordinates} selectedDate={selectedDate} />
                   )}
                 </MapContainer>
 
@@ -247,17 +310,29 @@ const MapView = () => {
                 <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 z-10">
                   <div className="flex items-center space-x-2">
                     <SafeIcon icon={FiNavigation} className="text-primary-500" />
-                    <span className="text-sm font-medium text-gray-900">Your Travel Map</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {selectedDate 
+                        ? `Entries for ${new Date(selectedDate).toLocaleDateString()}` 
+                        : 'All Travel Entries'}
+                    </span>
                   </div>
                 </div>
 
                 {/* Empty state - shown when map is loaded but no entries */}
-                {entries.length === 0 && (
+                {(entries.length === 0 || filteredEntries.length === 0) && (
                   <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
                     <div className="text-center p-6 bg-white rounded-lg shadow-sm">
                       <SafeIcon icon={FiNavigation} className="text-6xl text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">No locations yet</h3>
-                      <p className="text-gray-600">Start adding entries to see them on the map</p>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        {entries.length === 0 
+                          ? 'No locations yet' 
+                          : 'No entries for this date'}
+                      </h3>
+                      <p className="text-gray-600">
+                        {entries.length === 0 
+                          ? 'Start adding entries to see them on the map' 
+                          : 'Try selecting a different date'}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -285,7 +360,7 @@ const MapView = () => {
                       {type === 'diner' ? 'Diners' : type === 'accommodation' ? 'Stays' : type === 'route' ? 'Routes' : 'Attractions'}
                     </span>
                     <span className="text-xs text-gray-500">
-                      ({entries.filter(e => e.type === type).length})
+                      ({filteredEntries.filter(e => e.type === type).length})
                     </span>
                   </div>
                 ))}
@@ -377,11 +452,17 @@ const MapView = () => {
               transition={{ delay: 0.2 }}
               className="bg-white rounded-xl p-6 shadow-sm border"
             >
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Locations Visited</h3>
-              {entries.length === 0 ? (
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                {selectedDate ? `Locations on ${new Date(selectedDate).toLocaleDateString()}` : 'All Locations'}
+              </h3>
+              {filteredEntries.length === 0 ? (
                 <div className="text-center py-8">
                   <SafeIcon icon={FiInfo} className="text-4xl text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-600">No locations to display yet</p>
+                  <p className="text-gray-600">
+                    {entries.length === 0 
+                      ? 'No locations to display yet' 
+                      : 'No entries for this date'}
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-3 max-h-64 overflow-y-auto">
