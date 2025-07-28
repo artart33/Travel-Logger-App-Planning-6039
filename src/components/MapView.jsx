@@ -35,22 +35,31 @@ const createCustomIcon = (color) => {
 };
 
 // Custom component to fit map bounds to all markers
-const MapBoundsManager = ({ coordinates, selectedDate }) => {
+const MapBoundsManager = ({ coordinates, selectedDate, entries }) => {
   const map = useMap();
   
   useEffect(() => {
     if (coordinates && coordinates.length > 0) {
-      // Create a bounds object
-      const bounds = L.latLngBounds(coordinates);
-      
-      // Fit the map to these bounds with some padding
-      map.fitBounds(bounds, {
-        padding: [50, 50],
-        maxZoom: 16, // Limit max zoom to keep context
-        animate: true
-      });
+      // Filter out invalid coordinates
+      const validCoordinates = coordinates.filter(coord => 
+        coord && coord.length === 2 && 
+        !isNaN(coord[0]) && !isNaN(coord[1]) &&
+        coord[0] !== 0 && coord[1] !== 0
+      );
+
+      if (validCoordinates.length > 0) {
+        // Create a bounds object
+        const bounds = L.latLngBounds(validCoordinates);
+        
+        // Fit the map to these bounds with some padding
+        map.fitBounds(bounds, {
+          padding: [50, 50],
+          maxZoom: 13, // Limit max zoom to keep context
+          animate: true
+        });
+      }
     }
-  }, [coordinates, map, selectedDate]);
+  }, [coordinates, map, selectedDate, entries]); // Added entries as dependency
   
   return null;
 };
@@ -61,12 +70,13 @@ const MapView = () => {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [editingEntry, setEditingEntry] = useState(null);
   const [newLocation, setNewLocation] = useState('');
-  const [mapCenter, setMapCenter] = useState([40.7128, -74.0060]); // Default to NYC
-  const [mapZoom, setMapZoom] = useState(2); // Start zoomed out to see global view
+  const [mapCenter, setMapCenter] = useState([52.1326, 5.2913]); // Center of Netherlands
+  const [mapZoom, setMapZoom] = useState(7); // Good zoom level for Netherlands
   const [markerCoordinates, setMarkerCoordinates] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [uniqueDates, setUniqueDates] = useState([]);
   const [filteredEntries, setFilteredEntries] = useState([]);
+  const [locationCache, setLocationCache] = useState(new Map()); // Cache for geocoded locations
   const mapRef = useRef(null);
 
   const entryTypeColors = {
@@ -114,41 +124,103 @@ const MapView = () => {
     }
   }, [entries, selectedDate]);
 
-  // Process all entries to get their coordinates
-  useEffect(() => {
-    if (filteredEntries.length > 0) {
-      const coordinates = filteredEntries.map(entry => getLocationCoordinates(entry));
-      setMarkerCoordinates(coordinates);
-    } else {
-      setMarkerCoordinates([]);
+  // Geocode location to coordinates
+  const geocodeLocation = async (locationString) => {
+    // Check cache first
+    if (locationCache.has(locationString)) {
+      return locationCache.get(locationString);
     }
-  }, [filteredEntries]);
 
-  // Get user's current location for map centering if no entries
-  useEffect(() => {
-    if (entries.length === 0 && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setMapCenter([position.coords.latitude, position.coords.longitude]);
-          setMapZoom(10); // Zoom in when we get the user's location
-        },
-        (error) => {
-          console.log('Could not get location:', error);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationString)}&addressdetails=1&limit=1`,
+        {
+          headers: {
+            'Accept-Language': 'en',
+            'User-Agent': 'TravelLoggerApp/1.0'
+          }
         }
       );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.length > 0) {
+          const coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+          // Cache the result
+          setLocationCache(prev => new Map(prev.set(locationString, coords)));
+          return coords;
+        }
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
     }
-  }, [entries]);
+
+    return null;
+  };
+
+  // Process all entries to get their coordinates
+  useEffect(() => {
+    const processEntries = async () => {
+      if (filteredEntries.length > 0) {
+        // Get coordinates for all entries
+        const coordinates = [];
+        
+        for (const entry of filteredEntries) {
+          const coords = await getLocationCoordinates(entry);
+          if (coords) {
+            coordinates.push(coords);
+          }
+        }
+        
+        setMarkerCoordinates(coordinates);
+        
+        // Update map center based on valid coordinates if available
+        if (coordinates.length > 0) {
+          const validCoords = coordinates.filter(coord => 
+            coord && coord.length === 2 && 
+            !isNaN(coord[0]) && !isNaN(coord[1]) &&
+            coord[0] !== 0 && coord[1] !== 0
+          );
+          
+          if (validCoords.length > 0) {
+            // Calculate center of all coordinates
+            const avgLat = validCoords.reduce((sum, coord) => sum + coord[0], 0) / validCoords.length;
+            const avgLng = validCoords.reduce((sum, coord) => sum + coord[1], 0) / validCoords.length;
+            setMapCenter([avgLat, avgLng]);
+          }
+        }
+      } else {
+        setMarkerCoordinates([]);
+      }
+    };
+
+    processEntries();
+  }, [filteredEntries, locationCache]); // Added locationCache as dependency
 
   const handleLocationEdit = (entry) => {
     setEditingEntry(entry);
     setNewLocation(entry.location);
   };
 
-  const saveLocationEdit = () => {
+  const saveLocationEdit = async () => {
     if (editingEntry && newLocation.trim()) {
+      // Clear the cache for the old location
+      locationCache.delete(editingEntry.location);
+      
+      // Update the entry
       updateEntry(editingEntry.id, { location: newLocation.trim() });
+      
+      // Force re-geocoding by clearing cache for new location too
+      locationCache.delete(newLocation.trim());
+      setLocationCache(new Map(locationCache));
+      
       setEditingEntry(null);
       setNewLocation('');
+      
+      // Update selectedEntry if it's the same as the one being edited
+      if (selectedEntry && selectedEntry.id === editingEntry.id) {
+        setSelectedEntry({ ...selectedEntry, location: newLocation.trim() });
+      }
     }
   };
 
@@ -157,10 +229,10 @@ const MapView = () => {
     setNewLocation('');
   };
 
-  // Extract coordinates from location string or generate mock coordinates
-  const getLocationCoordinates = (entry) => {
+  // Extract coordinates from location string or geocode the location
+  const getLocationCoordinates = async (entry) => {
     // If the entry already has coordinates, use those
-    if (entry.coordinates) {
+    if (entry.coordinates && Array.isArray(entry.coordinates) && entry.coordinates.length === 2) {
       return entry.coordinates;
     }
 
@@ -174,17 +246,51 @@ const MapView = () => {
       }
     }
 
-    // Generate mock coordinates based on entry id for demo purposes
-    // In a real app, you would use a geocoding service
-    const hash = entry.id.split('').reduce((a, b) => {
-      a = ((a << 5) - a) + b.charCodeAt(0);
-      return a & a;
-    }, 0);
+    // Netherlands cities coordinates
+    const dutchCities = {
+      'amsterdam': [52.3676, 4.9041],
+      'rotterdam': [51.9225, 4.47917],
+      'den haag': [52.0705, 4.3007],
+      'the hague': [52.0705, 4.3007],
+      'utrecht': [52.0907, 5.1214],
+      'eindhoven': [51.441642, 5.469722],
+      'tilburg': [51.555, 5.0913],
+      'groningen': [53.2194, 6.5665],
+      'almere': [52.3508, 5.2647],
+      'breda': [51.5719, 4.7683],
+      'nijmegen': [51.8426, 5.8518],
+      'haarlem': [52.3874, 4.6462],
+      'arnhem': [51.9851, 5.8987],
+      'zaanstad': [52.4391, 4.8275],
+      'delft': [52.0116, 4.3571],
+      'leiden': [52.1601, 4.4970],
+      'maastricht': [50.8514, 5.6910],
+      'zwolle': [52.5168, 6.0830],
+      'enschede': [52.2215, 6.8937],
+      'amersfoort': [52.1561, 5.3878],
+      'apeldoorn': [52.2112, 5.9699],
+      'gouda': [52.0115, 4.7104],
+      'venlo': [51.3704, 6.1720],
+      'alkmaar': [52.6324, 4.7534],
+      'deventer': [52.2550, 6.1602]
+    };
 
-    return [
-      mapCenter[0] + (hash % 100) / 500 * (hash % 2 === 0 ? 1 : -1),
-      mapCenter[1] + ((hash * 2) % 100) / 500 * (hash % 3 === 0 ? 1 : -1)
-    ];
+    // Check if location contains any Dutch city names
+    const locationLower = entry.location.toLowerCase();
+    for (const [city, coords] of Object.entries(dutchCities)) {
+      if (locationLower.includes(city)) {
+        return coords;
+      }
+    }
+
+    // Try to geocode the location
+    const geocodedCoords = await geocodeLocation(entry.location);
+    if (geocodedCoords) {
+      return geocodedCoords;
+    }
+
+    // If we can't determine coordinates, use Netherlands center as fallback
+    return [52.1326, 5.2913]; // Center of Netherlands
   };
 
   // Group entries by location for the sidebar
@@ -195,6 +301,23 @@ const MapView = () => {
     groups[entry.location].push(entry);
     return groups;
   }, {});
+
+  // Create a memoized entries array with coordinates for markers
+  const [entriesWithCoords, setEntriesWithCoords] = useState([]);
+
+  useEffect(() => {
+    const processEntriesWithCoords = async () => {
+      const processed = await Promise.all(
+        filteredEntries.map(async (entry) => {
+          const coords = await getLocationCoordinates(entry);
+          return { ...entry, resolvedCoordinates: coords };
+        })
+      );
+      setEntriesWithCoords(processed);
+    };
+
+    processEntriesWithCoords();
+  }, [filteredEntries, locationCache]); // Re-process when entries or cache changes
 
   return (
     <motion.div
@@ -270,18 +393,21 @@ const MapView = () => {
                   style={{ height: '100%', width: '100%' }}
                   className="z-0"
                   ref={mapRef}
+                  key={`map-${Date.now()}`} // Force re-render when data changes
                 >
                   <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
-                  {filteredEntries.map((entry) => {
-                    const coordinates = getLocationCoordinates(entry);
+                  {entriesWithCoords.map((entry) => {
+                    const coordinates = entry.resolvedCoordinates;
+                    if (!coordinates || coordinates.length !== 2) return null;
+                    
                     const icon = createCustomIcon(entryTypeColors[entry.type]);
                     
                     return (
                       <Marker 
-                        key={entry.id}
+                        key={`${entry.id}-${entry.location}`} // Include location in key to force re-render
                         position={coordinates}
                         icon={icon}
                         eventHandlers={{
@@ -302,7 +428,11 @@ const MapView = () => {
                   
                   {/* Add the bounds manager component */}
                   {markerCoordinates.length > 0 && (
-                    <MapBoundsManager coordinates={markerCoordinates} selectedDate={selectedDate} />
+                    <MapBoundsManager 
+                      coordinates={markerCoordinates} 
+                      selectedDate={selectedDate}
+                      entries={entriesWithCoords} // Pass entries to trigger updates
+                    />
                   )}
                 </MapContainer>
 

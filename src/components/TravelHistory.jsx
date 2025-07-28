@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 import { useTravelContext } from '../context/TravelContext';
-import LocationEditor from './LocationEditor';
+import ImprovedLocationPicker from './ImprovedLocationPicker';
 
 const { FiArrowLeft, FiSearch, FiFilter, FiMapPin, FiStar, FiCalendar, FiTrash2, FiEdit2, FiImage } = FiIcons;
 
@@ -17,6 +17,7 @@ const TravelHistory = () => {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
 
   const entryTypeIcons = {
     diner: FiIcons.FiCoffee,
@@ -52,14 +53,21 @@ const TravelHistory = () => {
   const handleLocationEdit = (entry, e) => {
     e.stopPropagation();
     setEditingEntry(entry);
+    setShowLocationPicker(true);
   };
 
-  const handleLocationSave = (newLocation) => {
-    updateEntry(editingEntry.id, { location: newLocation });
+  const handleLocationSave = (newLocation, coordinates) => {
+    // Update with both the location string and coordinates
+    updateEntry(editingEntry.id, { 
+      location: newLocation,
+      coordinates: coordinates // Store coordinates for future map rendering
+    });
     setEditingEntry(null);
+    setShowLocationPicker(false);
   };
 
-  const handleLocationCancel = () => {
+  const handleLocationPickerClose = () => {
+    setShowLocationPicker(false);
     setEditingEntry(null);
   };
 
@@ -176,7 +184,7 @@ const TravelHistory = () => {
                           <span className="text-sm flex-1">{entry.location}</span>
                           <button
                             onClick={(e) => handleLocationEdit(entry, e)}
-                            className="ml-2 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-primary-500 transition-all"
+                            className="ml-2 p-1 text-gray-400 hover:text-primary-500 transition-all"
                             title="Edit location"
                           >
                             <SafeIcon icon={FiEdit2} className="text-sm" />
@@ -197,16 +205,16 @@ const TravelHistory = () => {
                             </div>
                             <div className="flex space-x-2 overflow-x-auto pb-2">
                               {entry.photos.map((photo, photoIndex) => (
-                                <div 
-                                  key={photo.id} 
+                                <div
+                                  key={photo.id}
                                   className="h-16 w-16 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer border border-gray-200"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     openPhotoModal(entry, photoIndex);
                                   }}
                                 >
-                                  <img 
-                                    src={photo.dataUrl} 
+                                  <img
+                                    src={photo.dataUrl}
                                     alt={photo.name || "Travel photo"}
                                     className="h-full w-full object-cover"
                                   />
@@ -242,12 +250,14 @@ const TravelHistory = () => {
         )}
       </div>
 
-      {/* Location Editor Modal */}
-      {editingEntry && (
-        <LocationEditor
-          entry={editingEntry}
-          onSave={handleLocationSave}
-          onCancel={handleLocationCancel}
+      {/* Improved Location Picker Modal */}
+      {showLocationPicker && editingEntry && (
+        <ImprovedLocationPicker
+          isOpen={showLocationPicker}
+          onClose={handleLocationPickerClose}
+          onLocationSelect={handleLocationSave}
+          initialLocation={editingEntry.location}
+          entryTitle={editingEntry.title}
         />
       )}
 
