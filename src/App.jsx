@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import HomeScreen from './components/HomeScreen';
 import TravelHistory from './components/TravelHistory';
 import AddEntry from './components/AddEntry';

@@ -20,14 +20,14 @@ const TravelHistory = () => {
   const [showLocationPicker, setShowLocationPicker] = useState(false);
 
   const entryTypeIcons = {
-    diner: FiIcons.FiCoffee,
+    food: FiIcons.FiCoffee,
     accommodation: FiIcons.FiHome,
     route: FiIcons.FiNavigation,
     attraction: FiIcons.FiCamera
   };
 
   const entryTypeColors = {
-    diner: 'bg-orange-100 text-orange-700',
+    food: 'bg-orange-100 text-orange-700',
     accommodation: 'bg-blue-100 text-blue-700',
     route: 'bg-green-100 text-green-700',
     attraction: 'bg-purple-100 text-purple-700'
@@ -35,9 +35,8 @@ const TravelHistory = () => {
 
   const filteredEntries = entries
     .filter(entry => {
-      const matchesSearch = 
-        entry.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        entry.location.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = entry.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          entry.location.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesFilter = filterType === 'all' || entry.type === filterType;
       return matchesSearch && matchesFilter;
     })
@@ -58,7 +57,7 @@ const TravelHistory = () => {
 
   const handleLocationSave = (newLocation, coordinates) => {
     // Update with both the location string and coordinates
-    updateEntry(editingEntry.id, { 
+    updateEntry(editingEntry.id, {
       location: newLocation,
       coordinates: coordinates // Store coordinates for future map rendering
     });
@@ -116,7 +115,7 @@ const TravelHistory = () => {
             <h1 className="text-xl font-semibold text-gray-900">Travel History</h1>
             <div className="w-16"></div>
           </div>
-          
+
           {/* Search and Filter */}
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 relative">
@@ -135,7 +134,7 @@ const TravelHistory = () => {
               className="px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
             >
               <option value="all">All Types</option>
-              <option value="diner">Diners</option>
+              <option value="food">Food</option>
               <option value="accommodation">Stays</option>
               <option value="route">Routes</option>
               <option value="attraction">Attractions</option>
@@ -190,12 +189,13 @@ const TravelHistory = () => {
                             <SafeIcon icon={FiEdit2} className="text-sm" />
                           </button>
                         </div>
+
                         {entry.description && (
                           <p className="text-gray-700 text-sm mb-3 line-clamp-2">
                             {entry.description}
                           </p>
                         )}
-                        
+
                         {/* Photos Preview */}
                         {entry.photos && entry.photos.length > 0 && (
                           <div className="mb-3">
@@ -223,7 +223,7 @@ const TravelHistory = () => {
                             </div>
                           </div>
                         )}
-                        
+
                         <div className="flex items-center space-x-4 text-sm text-gray-500">
                           <div className="flex items-center">
                             <SafeIcon icon={FiCalendar} className="mr-1" />
@@ -276,7 +276,7 @@ const TravelHistory = () => {
             >
               <SafeIcon icon={FiIcons.FiX} className="text-xl" />
             </button>
-            
+
             {/* Photo container */}
             <div className="relative aspect-[4/3] bg-black rounded-lg overflow-hidden">
               <img
@@ -285,7 +285,7 @@ const TravelHistory = () => {
                 className="w-full h-full object-contain"
               />
             </div>
-            
+
             {/* Navigation buttons */}
             {selectedEntry.photos.length > 1 && (
               <div className="absolute inset-y-0 left-0 right-0 flex items-center justify-between px-4">
@@ -309,7 +309,7 @@ const TravelHistory = () => {
                 </button>
               </div>
             )}
-            
+
             {/* Caption */}
             <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black to-transparent text-white">
               <h3 className="text-lg font-medium">{selectedEntry.title}</h3>

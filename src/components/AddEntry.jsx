@@ -13,7 +13,7 @@ const AddEntry = () => {
   const navigate = useNavigate();
   const { addEntry } = useTravelContext();
   const [formData, setFormData] = useState({
-    type: 'diner',
+    type: 'food',
     title: '',
     location: '',
     description: '',
@@ -30,10 +30,30 @@ const AddEntry = () => {
   const fileInputRef = React.useRef(null);
 
   const entryTypes = [
-    { id: 'diner', label: 'Diner', icon: FiIcons.FiCoffee, color: 'bg-orange-500' },
-    { id: 'accommodation', label: 'Stay', icon: FiIcons.FiHome, color: 'bg-blue-500' },
-    { id: 'route', label: 'Route', icon: FiIcons.FiNavigation, color: 'bg-green-500' },
-    { id: 'attraction', label: 'Attraction', icon: FiIcons.FiCamera, color: 'bg-purple-500' }
+    {
+      id: 'food',
+      label: 'Food',
+      icon: FiIcons.FiCoffee,
+      color: 'bg-orange-500'
+    },
+    {
+      id: 'accommodation',
+      label: 'Stay',
+      icon: FiIcons.FiHome,
+      color: 'bg-blue-500'
+    },
+    {
+      id: 'route',
+      label: 'Route',
+      icon: FiIcons.FiNavigation,
+      color: 'bg-green-500'
+    },
+    {
+      id: 'attraction',
+      label: 'Attraction',
+      icon: FiIcons.FiCamera,
+      color: 'bg-purple-500'
+    }
   ];
 
   // Get current location on component mount
@@ -69,7 +89,6 @@ const AddEntry = () => {
 
           if (response.ok) {
             const data = await response.json();
-            
             // Construct detailed address with street-level precision
             const road = data.address.road || data.address.street || '';
             const houseNumber = data.address.house_number || '';
@@ -77,49 +96,44 @@ const AddEntry = () => {
             const city = data.address.city || data.address.town || data.address.village || '';
             const state = data.address.state || data.address.county || '';
             const country = data.address.country || '';
-            
+
             // Build the address with as much detail as available
             let locationString = '';
-            
             if (road) {
               locationString += road;
               if (houseNumber) locationString += ' ' + houseNumber;
             }
-            
             if (suburb && suburb !== road) {
-              if (locationString) locationString += ', ';
+              if (locationString) locationString += ',';
               locationString += suburb;
             }
-            
             if (city && !locationString.includes(city)) {
-              if (locationString) locationString += ', ';
+              if (locationString) locationString += ',';
               locationString += city;
             }
-            
             if (state && !locationString.includes(state)) {
-              if (locationString) locationString += ', ';
+              if (locationString) locationString += ',';
               locationString += state;
             }
-            
             if (country && !locationString.includes(country)) {
-              if (locationString) locationString += ', ';
+              if (locationString) locationString += ',';
               locationString += country;
             }
-            
+
             // If we somehow still don't have a location string, use coordinates
             if (!locationString) {
-              locationString = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+              locationString = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
             }
-            
+
             handleInputChange('location', locationString);
           } else {
             // Fallback to coordinates if geocoding fails
-            handleInputChange('location', `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+            handleInputChange('location', `${latitude.toFixed(6)},${longitude.toFixed(6)}`);
           }
         } catch (error) {
           console.error('Geocoding error:', error);
           // Fallback to coordinates
-          handleInputChange('location', `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+          handleInputChange('location', `${latitude.toFixed(6)},${longitude.toFixed(6)}`);
         }
 
         setLocationLoading(false);
@@ -158,7 +172,10 @@ const AddEntry = () => {
   };
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   const handleMapLocationSelect = (locationName, coordinates) => {
@@ -273,9 +290,7 @@ const AddEntry = () => {
                   type="button"
                   onClick={() => handleInputChange('type', type.id)}
                   className={`p-4 rounded-lg border-2 transition-all ${
-                    formData.type === type.id
-                      ? 'border-primary-500 bg-primary-50'
-                      : 'border-gray-200 hover:border-gray-300'
+                    formData.type === type.id ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
                   <div className={`${type.color} rounded-lg p-2 mx-auto mb-2 w-fit`}>
@@ -317,9 +332,7 @@ const AddEntry = () => {
                 <div className="relative">
                   <SafeIcon
                     icon={locationLoading ? FiNavigation : FiMapPin}
-                    className={`absolute left-3 top-3.5 text-gray-400 ${
-                      locationLoading ? 'animate-spin' : ''
-                    }`}
+                    className={`absolute left-3 top-3.5 text-gray-400 ${locationLoading ? 'animate-spin' : ''}`}
                   />
                   <input
                     type="text"
@@ -439,7 +452,8 @@ const AddEntry = () => {
               max={5}
             />
             <p className="text-xs text-gray-500">
-              <SafeIcon icon={FiImage} className="inline mr-1" /> Add up to 5 photos to remember this experience
+              <SafeIcon icon={FiImage} className="inline mr-1" />
+              Add up to 5 photos to remember this experience
             </p>
           </motion.div>
 
@@ -489,7 +503,6 @@ const AddEntry = () => {
                   className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all resize-none"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Additional Notes

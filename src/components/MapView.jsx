@@ -22,11 +22,11 @@ L.Icon.Default.mergeOptions({
 const createCustomIcon = (color) => {
   return new L.Icon({
     iconUrl: `data:image/svg+xml;base64,${btoa(`
-      <svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12.5 0C5.6 0 0 5.6 0 12.5c0 12.5 12.5 28.5 12.5 28.5s12.5-16 12.5-28.5C25 5.6 19.4 0 12.5 0z" fill="${color}"/>
-        <circle cx="12.5" cy="12.5" r="7" fill="white"/>
-        <circle cx="12.5" cy="12.5" r="4" fill="${color}"/>
-      </svg>
+    <svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12.5 0C5.6 0 0 5.6 0 12.5c0 12.5 12.5 28.5 12.5 28.5s12.5-16 12.5-28.5C25 5.6 19.4 0 12.5 0z" fill="${color}"/>
+      <circle cx="12.5" cy="12.5" r="7" fill="white"/>
+      <circle cx="12.5" cy="12.5" r="4" fill="${color}"/>
+    </svg>
     `)}`,
     iconSize: [25, 41],
     iconAnchor: [12, 41],
@@ -37,20 +37,17 @@ const createCustomIcon = (color) => {
 // Custom component to fit map bounds to all markers
 const MapBoundsManager = ({ coordinates, selectedDate, entries }) => {
   const map = useMap();
-  
+
   useEffect(() => {
     if (coordinates && coordinates.length > 0) {
       // Filter out invalid coordinates
-      const validCoordinates = coordinates.filter(coord => 
-        coord && coord.length === 2 && 
-        !isNaN(coord[0]) && !isNaN(coord[1]) &&
-        coord[0] !== 0 && coord[1] !== 0
+      const validCoordinates = coordinates.filter(
+        coord => coord && coord.length === 2 && !isNaN(coord[0]) && !isNaN(coord[1]) && coord[0] !== 0 && coord[1] !== 0
       );
 
       if (validCoordinates.length > 0) {
         // Create a bounds object
         const bounds = L.latLngBounds(validCoordinates);
-        
         // Fit the map to these bounds with some padding
         map.fitBounds(bounds, {
           padding: [50, 50],
@@ -60,7 +57,7 @@ const MapBoundsManager = ({ coordinates, selectedDate, entries }) => {
       }
     }
   }, [coordinates, map, selectedDate, entries]); // Added entries as dependency
-  
+
   return null;
 };
 
@@ -80,21 +77,21 @@ const MapView = () => {
   const mapRef = useRef(null);
 
   const entryTypeColors = {
-    diner: '#f97316', // orange-500
+    food: '#f97316', // orange-500
     accommodation: '#3b82f6', // blue-500
     route: '#22c55e', // green-500
     attraction: '#a855f7', // purple-500
   };
 
   const entryTypeIcons = {
-    diner: FiIcons.FiCoffee,
+    food: FiIcons.FiCoffee,
     accommodation: FiIcons.FiHome,
     route: FiIcons.FiNavigation,
     attraction: FiIcons.FiCamera,
   };
 
   const entryTypeColorClasses = {
-    diner: 'bg-orange-500',
+    food: 'bg-orange-500',
     accommodation: 'bg-blue-500',
     route: 'bg-green-500',
     attraction: 'bg-purple-500',
@@ -106,14 +103,14 @@ const MapView = () => {
       // Get all unique dates
       const dates = [...new Set(entries.map(entry => entry.date))].sort((a, b) => new Date(b) - new Date(a));
       setUniqueDates(dates);
-      
-      // Set the most recent date as default
+
+      // Set the most recent date as default if not already set
       if (dates.length > 0 && !selectedDate) {
         setSelectedDate(dates[0]);
       }
     }
   }, [entries]);
-  
+
   // Filter entries by selected date
   useEffect(() => {
     if (entries.length > 0 && selectedDate) {
@@ -164,24 +161,19 @@ const MapView = () => {
       if (filteredEntries.length > 0) {
         // Get coordinates for all entries
         const coordinates = [];
-        
         for (const entry of filteredEntries) {
           const coords = await getLocationCoordinates(entry);
           if (coords) {
             coordinates.push(coords);
           }
         }
-        
         setMarkerCoordinates(coordinates);
-        
+
         // Update map center based on valid coordinates if available
         if (coordinates.length > 0) {
-          const validCoords = coordinates.filter(coord => 
-            coord && coord.length === 2 && 
-            !isNaN(coord[0]) && !isNaN(coord[1]) &&
-            coord[0] !== 0 && coord[1] !== 0
+          const validCoords = coordinates.filter(
+            coord => coord && coord.length === 2 && !isNaN(coord[0]) && !isNaN(coord[1]) && coord[0] !== 0 && coord[1] !== 0
           );
-          
           if (validCoords.length > 0) {
             // Calculate center of all coordinates
             const avgLat = validCoords.reduce((sum, coord) => sum + coord[0], 0) / validCoords.length;
@@ -236,7 +228,7 @@ const MapView = () => {
       return entry.coordinates;
     }
 
-    // Try to parse coordinates from location string (format: "lat,lng")
+    // Try to parse coordinates from location string (format: "lat, lng")
     const coordMatch = entry.location.match(/(-?\d+\.?\d*),\s*(-?\d+\.?\d*)/);
     if (coordMatch) {
       const lat = parseFloat(coordMatch[1]);
@@ -346,7 +338,7 @@ const MapView = () => {
       <div className="max-w-6xl mx-auto px-6 py-6">
         {/* Date Filter */}
         {uniqueDates.length > 0 && (
-          <motion.div 
+          <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             className="mb-6"
@@ -365,12 +357,7 @@ const MapView = () => {
                 <option value="">All dates</option>
                 {uniqueDates.map(date => (
                   <option key={date} value={date}>
-                    {new Date(date).toLocaleDateString('en-US', { 
-                      weekday: 'short', 
-                      year: 'numeric', 
-                      month: 'short', 
-                      day: 'numeric' 
-                    })}
+                    {new Date(date).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
                   </option>
                 ))}
               </select>
@@ -406,7 +393,7 @@ const MapView = () => {
                     const icon = createCustomIcon(entryTypeColors[entry.type]);
                     
                     return (
-                      <Marker 
+                      <Marker
                         key={`${entry.id}-${entry.location}`} // Include location in key to force re-render
                         position={coordinates}
                         icon={icon}
@@ -425,7 +412,7 @@ const MapView = () => {
                       </Marker>
                     );
                   })}
-                  
+
                   {/* Add the bounds manager component */}
                   {markerCoordinates.length > 0 && (
                     <MapBoundsManager 
@@ -441,9 +428,7 @@ const MapView = () => {
                   <div className="flex items-center space-x-2">
                     <SafeIcon icon={FiNavigation} className="text-primary-500" />
                     <span className="text-sm font-medium text-gray-900">
-                      {selectedDate 
-                        ? `Entries for ${new Date(selectedDate).toLocaleDateString()}` 
-                        : 'All Travel Entries'}
+                      {selectedDate ? `Entries for ${new Date(selectedDate).toLocaleDateString()}` : 'All Travel Entries'}
                     </span>
                   </div>
                 </div>
@@ -454,14 +439,10 @@ const MapView = () => {
                     <div className="text-center p-6 bg-white rounded-lg shadow-sm">
                       <SafeIcon icon={FiNavigation} className="text-6xl text-gray-300 mx-auto mb-4" />
                       <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        {entries.length === 0 
-                          ? 'No locations yet' 
-                          : 'No entries for this date'}
+                        {entries.length === 0 ? 'No locations yet' : 'No entries for this date'}
                       </h3>
                       <p className="text-gray-600">
-                        {entries.length === 0 
-                          ? 'Start adding entries to see them on the map' 
-                          : 'Try selecting a different date'}
+                        {entries.length === 0 ? 'Start adding entries to see them on the map' : 'Try selecting a different date'}
                       </p>
                     </div>
                   </div>
@@ -487,7 +468,7 @@ const MapView = () => {
                       <SafeIcon icon={entryTypeIcons[type]} className="text-white text-xs" />
                     </div>
                     <span className="text-sm text-gray-700 capitalize">
-                      {type === 'diner' ? 'Diners' : type === 'accommodation' ? 'Stays' : type === 'route' ? 'Routes' : 'Attractions'}
+                      {type === 'food' ? 'Food' : type === 'accommodation' ? 'Stays' : type === 'route' ? 'Routes' : 'Attractions'}
                     </span>
                     <span className="text-xs text-gray-500">
                       ({filteredEntries.filter(e => e.type === type).length})
@@ -553,14 +534,14 @@ const MapView = () => {
                       )}
                     </div>
                   </div>
-                  
+
                   {selectedEntry.description && (
                     <div>
                       <h5 className="text-sm font-medium text-gray-700 mb-1">Description</h5>
                       <p className="text-sm text-gray-600">{selectedEntry.description}</p>
                     </div>
                   )}
-                  
+
                   <div className="flex items-center space-x-4 text-sm text-gray-500">
                     <div className="flex items-center space-x-1">
                       <SafeIcon icon={FiIcons.FiCalendar} />
@@ -589,9 +570,7 @@ const MapView = () => {
                 <div className="text-center py-8">
                   <SafeIcon icon={FiInfo} className="text-4xl text-gray-300 mx-auto mb-2" />
                   <p className="text-gray-600">
-                    {entries.length === 0 
-                      ? 'No locations to display yet' 
-                      : 'No entries for this date'}
+                    {entries.length === 0 ? 'No locations to display yet' : 'No entries for this date'}
                   </p>
                 </div>
               ) : (
